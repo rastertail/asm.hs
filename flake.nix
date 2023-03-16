@@ -2,20 +2,28 @@
   description = "The functional meta-assembly framework";
   
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    nixpkgs.follows = "haskell-nix/nixpkgs-unstable";
+    haskell-nix.url = "github:input-output-hk/haskell.nix";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs = { self, nixpkgs, haskell-nix, flake-utils }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = nixpkgs.legacyPackages.${system};
-      in rec {
-        packages.asm-hs = pkgs.haskellPackages.developPackage {
-          root = ./.;
-        };
-
-        packages.default = packages.asm-hs;
+        overlays = [ haskell-nix.overlay ];
+        pkgs = import nixpkgs { inherit system overlays; inherit (haskell-nix) config; };
+        flake = (pkgs.haskell-nix.project' {
+          src = ./.;
+          compiler-nix-name = "ghc944";
+          index-state = "2023-03-13T23:23:33Z";
+          shell.tools = {
+            cabal = "latest";
+            hlint = "latest";
+            haskell-language-server = "1.9.0.0";
+          };
+        }).flake {};
+      in flake // {
+        packages.default = flake.packages."asm:lib:asm";
       }
     );
 }
